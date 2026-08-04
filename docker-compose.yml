@@ -1,0 +1,55 @@
+# Caminho: docker-compose.yml (raiz do projeto)
+
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cd_produtividade_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cd_admin
+      POSTGRES_PASSWORD: troque_esta_senha
+      POSTGRES_DB: cd_produtividade
+    ports:
+      - "5432:5432"
+    volumes:
+      - cd_produtividade_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cd_admin -d cd_produtividade"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cd_produtividade_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://cd_admin:troque_esta_senha@db:5432/cd_produtividade
+      JWT_SECRET: troque_este_segredo
+      JWT_REFRESH_SECRET: troque_este_segredo_refresh
+      PORT: 3333
+    ports:
+      - "3333:3333"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3333
+    container_name: cd_produtividade_web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  cd_produtividade_pgdata:
